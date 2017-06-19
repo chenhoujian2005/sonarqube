@@ -17,18 +17,17 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.sonar.db;
+package org.sonar.db.es;
 
-import org.junit.Test;
-import org.sonar.core.platform.ComponentContainer;
+import java.util.Collection;
+import java.util.List;
+import org.apache.ibatis.annotations.Param;
 
-import static org.assertj.core.api.Assertions.assertThat;
+public interface EsQueueMapper {
 
-public class DaoModuleTest {
-  @Test
-  public void verify_count_of_added_components() {
-    ComponentContainer container = new ComponentContainer();
-    new DaoModule().configure(container);
-    assertThat(container.size()).isEqualTo(2 + 47);
-  }
+  void insert(@Param("dto") EsQueueDto dto, @Param("now") long now);
+
+  void delete(@Param("uuids") List<String> uuids);
+
+  Collection<EsQueueDto> selectForRecovery(@Param("beforeDate") long beforeDate, @Param("afterDate") long afterDate, @Param("limit") int limit);
 }

@@ -1,0 +1,11 @@
+# sonar.web.javaAdditionalOpts=-javaagent:/path/to/byteman-3.0.10/lib/byteman.jar=script:/path/to/user_indexer.btm,boot:/path/to/byteman-3.0.10/lib/byteman.jar
+# sonar.search.recovery.delayInSeconds=10
+# sonar.search.recovery.minAgeInSeconds=30
+
+RULE make indexing of users fail
+CLASS org.sonar.server.user.index.UserIndexer
+METHOD postCommit
+BIND login = $user.getLogin()
+IF login.contains("error")
+DO THROW new RuntimeException("Fail to index user [" + login + "] to Elasticsearch")
+ENDRULE

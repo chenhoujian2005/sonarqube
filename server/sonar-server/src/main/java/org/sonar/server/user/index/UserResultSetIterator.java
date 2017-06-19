@@ -26,14 +26,17 @@ import com.google.common.collect.Maps;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.StringUtils;
 import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
 import org.sonar.db.ResultSetIterator;
+import org.sonar.db.es.EsQueueDto;
 import org.sonar.db.user.UserDto;
+
+import static java.util.stream.Collectors.toList;
 
 /**
  * Scrolls over table USERS and reads documents to populate the user index
@@ -57,38 +60,38 @@ class UserResultSetIterator extends ResultSetIterator<UserDoc> {
 
   private final ListMultimap<String, String> organizationUuidsByLogins;
 
-  private UserResultSetIterator(PreparedStatement stmt, ListMultimap<String, String> organizationUuidsByLogins) throws SQLException {
+  private UserResultSetIterator(Collection<EsQueueDto> esQueueDtos, PreparedStatement stmt, ListMultimap<String, String> organizationUuidsByLogins) throws SQLException {
     super(stmt);
     this.organizationUuidsByLogins = organizationUuidsByLogins;
   }
 
-  static UserResultSetIterator create(DbClient dbClient, DbSession session, @Nullable List<String> logins) {
+  static UserResultSetIterator create(DbClient dbClient, DbSession session, @Nullable Collection<EsQueueDto> esQueueDtos) {
     try {
-      String sql = createSql(logins);
+      String sql = createSql(esQueueDtos);
       PreparedStatement stmt = dbClient.getMyBatis().newScrollingSelectStatement(session, sql);
-      setParameters(stmt, logins);
+      setParameters(stmt, esQueueDtos);
 
       ListMultimap<String, String> organizationUuidsByLogin = ArrayListMultimap.create();
-      if (logins == null) {
+      if (esQueueDtos == null) {
         dbClient.organizationMemberDao().selectAllForUserIndexing(session, organizationUuidsByLogin::put);
       } else {
-        dbClient.organizationMemberDao().selectForUserIndexing(session, logins, organizationUuidsByLogin::put);
+        dbClient.organizationMemberDao().selectForUserIndexing(session, esQueueDtos.stream().map(dto -> dto.getDocUuid()).collect(toList()), organizationUuidsByLogin::put);
       }
 
-      return new UserResultSetIterator(stmt, organizationUuidsByLogin);
+      return new UserResultSetIterator(esQueueDtos, stmt, organizationUuidsByLogin);
     } catch (SQLException e) {
       throw new IllegalStateException("Fail to prepare SQL request to select all users", e);
     }
   }
 
-  private static String createSql(@Nullable List<String> logins) {
+  private static String createSql(@Nullable Collection<EsQueueDto> logins) {
     if (logins == null) {
       return SQL_ALL;
     }
 
     List<String> sqlLogins = logins.stream()
       .map(l -> LOGIN_FILTER)
-      .collect(Collectors.toList());
+      .collect(toList());
 
     String sql = SQL_ALL;
     sql += " WHERE ";
@@ -97,13 +100,15 @@ class UserResultSetIterator extends ResultSetIterator<UserDoc> {
     return sql;
   }
 
-  private static void setParameters(PreparedStatement stmt, @Nullable List<String> logins) throws SQLException {
-    if (logins == null) {
+  private static void setParameters(PreparedStatement stmt, @Nullable Collection<EsQueueDto> esQueueDtos) throws SQLException {
+    if (esQueueDtos == null) {
       return;
     }
 
-    for (int i = 0; i < logins.size(); i++) {
-      stmt.setString(i + 1, logins.get(i));
+    int paramIndex = 1;
+    for (EsQueueDto esQueueDto : esQueueDtos) {
+      stmt.setString(paramIndex, esQueueDto.getDocUuid());
+      paramIndex++;
     }
   }
 
@@ -124,5 +129,4 @@ class UserResultSetIterator extends ResultSetIterator<UserDoc> {
     doc.setOrganizationUuids(organizationUuidsByLogins.get(login));
     return doc;
   }
-
 }

@@ -20,13 +20,15 @@
 package org.sonar.server.user.index;
 
 import com.google.common.collect.ImmutableSet;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 import org.elasticsearch.action.index.IndexRequest;
 import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
+import org.sonar.db.es.EsQueueDto;
+import org.sonar.db.user.UserDto;
 import org.sonar.server.es.BulkIndexer;
 import org.sonar.server.es.BulkIndexer.Size;
 import org.sonar.server.es.EsClient;
@@ -35,6 +37,7 @@ import org.sonar.server.es.StartupIndexer;
 
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.sonar.db.DatabaseUtils.executeLargeInputsWithoutOutput;
 import static org.sonar.server.user.index.UserIndexDefinition.INDEX_TYPE_USER;
 
@@ -58,52 +61,104 @@ public class UserIndexer implements StartupIndexer {
     doIndex(newBulkIndexer(Size.LARGE), null);
   }
 
+  public void commitAndIndex(DbSession dbSession, UserDto user) {
+    EsQueueDto queueItem = dbClient.esQueueDao().insert(dbSession, EsQueueDto.create(EsQueueDto.Type.USER, user.getLogin()));
+    dbSession.commit();
+    postCommit(dbSession, user, queueItem);
+  }
+
+  /**
+   * Entry point for Byteman tests. See directory tests/resilience.
+   * The unused parameter "user" is used only by the Byteman script.
+   */
+  private void postCommit(DbSession dbSession, UserDto user, EsQueueDto queueItem) {
+    index(dbSession, singletonList(queueItem));
+  }
+
+  public void index(DbSession dbSession, Collection<EsQueueDto> esQueueItems) {
+    if (esQueueItems.isEmpty()) {
+      return;
+    }
+    esQueueItems.stream()
+      .forEach(i -> requireNonNull(i.getUuid(), () -> "BUG - " + i + " has not been persisted before indexing"));
+
+    BulkIndexer bulkIndexer = newBulkIndexer(Size.REGULAR);
+    try (UserResultSetIterator rowIt = UserResultSetIterator.create(dbClient, dbSession, esQueueItems)) {
+      processResultSet(dbSession, bulkIndexer, esQueueItems, rowIt);
+    }
+  }
+
+  @Deprecated
   public void index(String login) {
-    requireNonNull(login);
     doIndex(newBulkIndexer(Size.REGULAR), singletonList(login));
   }
 
+  @Deprecated
   public void index(List<String> logins) {
-    requireNonNull(logins);
-    if (logins.isEmpty()) {
-      return;
+    if (!logins.isEmpty()) {
+      doIndex(newBulkIndexer(Size.REGULAR), logins);
     }
-
-    doIndex(newBulkIndexer(Size.REGULAR), logins);
   }
 
+  @Deprecated
+  public void index(DbSession dbSession, List<String> logins) {
+    if (!logins.isEmpty()) {
+      doIndex(dbSession, newBulkIndexer(Size.REGULAR), logins);
+    }
+  }
+
+  @Deprecated
   private void doIndex(BulkIndexer bulk, @Nullable List<String> logins) {
     try (DbSession dbSession = dbClient.openSession(false)) {
-      if (logins == null) {
-        processLogins(bulk, dbSession, null);
-      } else {
-        executeLargeInputsWithoutOutput(logins, l -> processLogins(bulk, dbSession, l));
-      }
+      doIndex(dbSession, bulk, logins);
     }
   }
 
+  @Deprecated
+  private void doIndex(DbSession dbSession, BulkIndexer bulk, @Nullable List<String> logins) {
+    if (logins == null) {
+      processLogins(bulk, dbSession, null);
+    } else {
+      executeLargeInputsWithoutOutput(logins, l -> processLogins(bulk, dbSession, l));
+    }
+  }
+
+  @Deprecated
   private void processLogins(BulkIndexer bulk, DbSession dbSession, @Nullable List<String> logins) {
-    try (UserResultSetIterator rowIt = UserResultSetIterator.create(dbClient, dbSession, logins)) {
-      processResultSet(bulk, rowIt);
+    List<EsQueueDto> esQueueDtos = null;
+
+    if (logins != null) {
+      esQueueDtos = logins.stream()
+        .map(l -> {
+          EsQueueDto esQueueItem = EsQueueDto.create(EsQueueDto.Type.USER, l);
+          dbClient.esQueueDao().insert(dbSession, esQueueItem);
+          return esQueueItem;})
+        .collect(toList());
+      dbSession.commit();
+    }
+
+    try (UserResultSetIterator rowIt = UserResultSetIterator.create(dbClient, dbSession, esQueueDtos)) {
+      processResultSet(dbSession, bulk, esQueueDtos, rowIt);
     }
   }
 
-  private static void processResultSet(BulkIndexer bulk, Iterator<UserDoc> users) {
-    bulk.start();
+  private static void processResultSet(DbSession dbSession, BulkIndexer bulk, Collection<EsQueueDto> esQueueDtos, UserResultSetIterator users) {
+    bulk.start(dbSession, esQueueDtos);
     while (users.hasNext()) {
       UserDoc user = users.next();
+      // only index requests, no deletion requests.
+      // Deactivated users are not deleted but updated.
       bulk.add(newIndexRequest(user));
     }
     bulk.stop();
   }
 
   private BulkIndexer newBulkIndexer(Size bulkSize) {
-    return new BulkIndexer(esClient, UserIndexDefinition.INDEX_TYPE_USER.getIndex(), bulkSize);
+    return new BulkIndexer(dbClient, esClient, UserIndexDefinition.INDEX_TYPE_USER.getIndex(), bulkSize);
   }
 
   private static IndexRequest newIndexRequest(UserDoc user) {
-    return new IndexRequest(UserIndexDefinition.INDEX_TYPE_USER.getIndex(), UserIndexDefinition.INDEX_TYPE_USER.getType(), user.login())
+    return new IndexRequest(UserIndexDefinition.INDEX_TYPE_USER.getIndex(), UserIndexDefinition.INDEX_TYPE_USER.getType(), user.getId())
       .source(user.getFields());
   }
-
 }

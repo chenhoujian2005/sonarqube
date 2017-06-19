@@ -60,6 +60,6 @@ public class DbVersion65 implements DbVersion {
       .add(1730, "Add USERS.ONBOARDED", AddUsersOnboarded.class)
       .add(1731, "Populate USERS.ONBOARDED", PopulateUsersOnboarded.class)
       .add(1732, "Make USERS.ONBOARDED not nullable", MakeUsersOnboardedNotNullable.class)
-    ;
+      .add(1733, "Create table es_queue", CreateEsQueueTable.class);
   }
 }

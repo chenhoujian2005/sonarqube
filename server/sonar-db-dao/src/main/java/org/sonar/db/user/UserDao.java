@@ -19,13 +19,14 @@
  */
 package org.sonar.db.user;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicates;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import org.sonar.api.user.UserQuery;
@@ -34,7 +35,6 @@ import org.sonar.db.Dao;
 import org.sonar.db.DbSession;
 import org.sonar.db.RowNotFoundException;
 
-import static com.google.common.collect.FluentIterable.from;
 import static org.sonar.db.DatabaseUtils.executeLargeInputs;
 
 public class UserDao implements Dao {
@@ -82,7 +82,10 @@ public class UserDao implements Dao {
    */
   public List<UserDto> selectByOrderedLogins(DbSession session, Collection<String> logins) {
     List<UserDto> unordered = selectByLogins(session, logins);
-    return from(logins).transform(new LoginToUser(unordered)).filter(Predicates.notNull()).toList();
+    return logins.stream()
+      .map(new LoginToUser(unordered))
+      .filter(Objects::nonNull)
+      .collect(Collectors.toList());
   }
 
   public List<UserDto> selectUsers(DbSession dbSession, UserQuery query) {

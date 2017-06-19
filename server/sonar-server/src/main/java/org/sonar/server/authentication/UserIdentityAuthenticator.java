@@ -117,6 +117,8 @@ public class UserIdentityAuthenticator {
       .build());
     UserDto newUser = dbClient.userDao().selectOrFailByLogin(dbSession, userLogin);
     syncGroups(dbSession, user, newUser);
+    dbSession.commit();
+
     return newUser;
   }
 
@@ -127,6 +129,7 @@ public class UserIdentityAuthenticator {
       .setExternalIdentity(new ExternalIdentity(provider.getKey(), user.getProviderLogin()))
       .setPassword(null));
     syncGroups(dbSession, user, userDto);
+    dbSession.commit();
   }
 
   private void syncGroups(DbSession dbSession, UserIdentity userIdentity, UserDto userDto) {
@@ -149,8 +152,6 @@ public class UserIdentityAuthenticator {
 
     addGroups(dbSession, userDto, groupsToAdd, groupsByName);
     removeGroups(dbSession, userDto, groupsToRemove, groupsByName);
-
-    dbSession.commit();
   }
 
   private void addGroups(DbSession dbSession, UserDto userDto, Collection<String> groupsToAdd, Map<String, GroupDto> groupsByName) {

@@ -47,7 +47,8 @@ import org.junit.runners.Suite;
   UpdateCenterTest.class,
   RealmAuthenticationTest.class,
   SsoAuthenticationTest.class,
-  OnboardingTest.class
+  OnboardingTest.class,
+  UserEsResilienceTest.class
 })
 public class Category5Suite {
 
