@@ -370,7 +370,9 @@ public class DbClient {
     return defaultQProfileDao;
   }
 
-  public EsQueueDao esQueueDao() { return esQueueDao; }
+  public EsQueueDao esQueueDao() {
+    return esQueueDao;
+  }
 
   protected <K extends Dao> K getDao(Map<Class, Dao> map, Class<K> clazz) {
     return (K) map.get(clazz);

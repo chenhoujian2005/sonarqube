@@ -132,8 +132,8 @@ public class UserIndexer implements StartupIndexer {
         .map(l -> {
           EsQueueDto esQueueItem = EsQueueDto.create(EsQueueDto.Type.USER, l);
           dbClient.esQueueDao().insert(dbSession, esQueueItem);
-          return esQueueItem;})
-        .collect(toList());
+          return esQueueItem;
+        }).collect(toList());
       dbSession.commit();
     }
 
