@@ -225,14 +225,16 @@ public class BulkIndexer {
     }
 
     private void deleteSuccessfulItems(BulkResponse bulkResponse) {
-      List<EsQueueDto> itemsToDelete = Arrays.stream(bulkResponse.getItems())
-        .filter(b -> !b.isFailed())
-        .map(b -> esQueueDtos.stream().filter(t -> b.getId().equals(t.getDocUuid())).findFirst().orElse(null))
-        .filter(Objects::nonNull)
-        .collect(toList());
+      if (esQueueDtos != null) {
+        List<EsQueueDto> itemsToDelete = Arrays.stream(bulkResponse.getItems())
+          .filter(b -> !b.isFailed())
+          .map(b -> esQueueDtos.stream().filter(t -> b.getId().equals(t.getDocUuid())).findFirst().orElse(null))
+          .filter(Objects::nonNull)
+          .collect(toList());
 
-      dbClient.esQueueDao().delete(dbSession, itemsToDelete);
-      dbSession.commit();
+        dbClient.esQueueDao().delete(dbSession, itemsToDelete);
+        dbSession.commit();
+      }
     }
   }
 
