@@ -36,8 +36,8 @@
     select <include refid="esQueueColumns" />
     from es_queue
     where
-    created_at &lt; #{beforeDate, jdbcType=BIGINT}
-    and created_at &gt; #{afterDate, jdbcType=BIGINT}
+    created_at &lt;= #{beforeDate, jdbcType=BIGINT}
+    and created_at &gt;= #{afterDate, jdbcType=BIGINT}
     limit #{limit, jdbcType=INTEGER}
   </select>
 
@@ -47,12 +47,21 @@
       select <include refid="esQueueColumns" />
       from es_queue
       where
-      created_at &lt; #{beforeDate, jdbcType=BIGINT}
-      and created_at &gt; #{afterDate, jdbcType=BIGINT}
+      created_at &lt;= #{beforeDate, jdbcType=BIGINT}
+      and created_at &gt;= #{afterDate, jdbcType=BIGINT}
     ) t
     ) t
     where
     t.rn &lt; #{limit, jdbcType=INTEGER}
   </select>
+
+  <select id="selectForRecovery" parameterType="map" resultType="org.sonar.db.es.EsQueueDto" databaseId="mssql">
+    select top(#{limit, jdbcType=INTEGER}) <include refid="esQueueColumns" />
+    from es_queue
+    where
+    created_at &lt;= #{beforeDate, jdbcType=BIGINT}
+    and created_at &gt;= #{afterDate, jdbcType=BIGINT}
+  </select>
+
 </mapper>
 

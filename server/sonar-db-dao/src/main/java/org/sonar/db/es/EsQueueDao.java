@@ -21,6 +21,7 @@ package org.sonar.db.es;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import org.sonar.api.utils.System2;
 import org.sonar.core.util.UuidFactory;
 import org.sonar.db.Dao;
@@ -63,6 +64,7 @@ public class EsQueueDao implements Dao {
     EsQueueMapper mapper = mapper(dbSession);
     List<String> uuids = items.stream()
       .map(EsQueueDto::getUuid)
+      .filter(Objects::nonNull)
       .collect(toArrayList(items.size()));
     executeLargeUpdates(uuids, mapper::delete);
   }
