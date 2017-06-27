@@ -19,6 +19,8 @@
  */
 package org.sonarqube.tests;
 
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
 import org.sonarqube.tests.serverSystem.ClusterTest;
 import org.sonarqube.tests.serverSystem.RestartTest;
 import org.sonarqube.tests.serverSystem.ServerSystemRestartingOrchestrator;
@@ -28,8 +30,7 @@ import org.sonarqube.tests.updateCenter.UpdateCenterTest;
 import org.sonarqube.tests.user.OnboardingTest;
 import org.sonarqube.tests.user.RealmAuthenticationTest;
 import org.sonarqube.tests.user.SsoAuthenticationTest;
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
+import org.sonarqube.tests.user.UserEsResilienceTest;
 
 /**
  * This suite is reserved to the tests that start their own instance of Orchestrator.

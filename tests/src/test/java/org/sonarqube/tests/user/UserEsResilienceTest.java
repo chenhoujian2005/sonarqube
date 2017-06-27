@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package it.user;
+package org.sonarqube.tests.user;
 
 import com.sonar.orchestrator.Orchestrator;
 import java.io.File;
@@ -28,7 +28,7 @@ import org.junit.Test;
 import org.junit.rules.DisableOnDebug;
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
-import org.sonarqube.test.Tester;
+import org.sonarqube.tests.Tester;
 import org.sonarqube.ws.client.user.SearchRequest;
 
 import static java.lang.String.format;
