@@ -47,8 +47,10 @@ public class DefaultQualityProfileLoaderTest {
 
   @Test
   public void load_gets_profiles_for_specified_project_and_profile_name() throws IOException {
-    prepareCallWithResults();
+    WsTestUtil.mockStream(wsClient, "/api/qualityprofiles/search.protobuf?projectKey=foo", createStreamOfProfiles("qp"));
+    WsTestUtil.mockStream(wsClient, "/api/qualityprofiles/search.protobuf?projectKey=foo&profileName=bar", createStreamOfProfiles("qp"));
     underTest.load("foo", "bar");
+    verifyCalledPath("/api/qualityprofiles/search.protobuf?projectKey=foo");
     verifyCalledPath("/api/qualityprofiles/search.protobuf?projectKey=foo&profileName=bar");
   }
 
@@ -61,8 +63,10 @@ public class DefaultQualityProfileLoaderTest {
 
   @Test
   public void load_encodes_url_parameters() throws IOException {
-    prepareCallWithResults();
+    WsTestUtil.mockStream(wsClient, "/api/qualityprofiles/search.protobuf?projectKey=foo%232", createStreamOfProfiles("qp"));
+    WsTestUtil.mockStream(wsClient, "/api/qualityprofiles/search.protobuf?projectKey=foo%232&profileName=bar%232", createStreamOfProfiles("qp"));
     underTest.load("foo#2", "bar#2");
+    verifyCalledPath("/api/qualityprofiles/search.protobuf?projectKey=foo%232");
     verifyCalledPath("/api/qualityprofiles/search.protobuf?projectKey=foo%232&profileName=bar%232");
   }
 
@@ -76,8 +80,10 @@ public class DefaultQualityProfileLoaderTest {
 
   @Test
   public void loadDefault_gets_profiles_with_specified_name() throws IOException {
-    prepareCallWithResults();
+    WsTestUtil.mockStream(wsClient, "/api/qualityprofiles/search.protobuf?defaults=true", createStreamOfProfiles("qp"));
+    WsTestUtil.mockStream(wsClient, "/api/qualityprofiles/search.protobuf?defaults=true&profileName=foo", createStreamOfProfiles("qp"));
     underTest.loadDefault("foo");
+    verifyCalledPath("/api/qualityprofiles/search.protobuf?defaults=true");
     verifyCalledPath("/api/qualityprofiles/search.protobuf?defaults=true&profileName=foo");
   }
 
@@ -89,18 +95,13 @@ public class DefaultQualityProfileLoaderTest {
   }
 
   @Test
-  public void loadDefault_encodes_url_parameters() throws IOException {
-    prepareCallWithResults();
-    underTest.loadDefault("foo#2");
-    verifyCalledPath("/api/qualityprofiles/search.protobuf?defaults=true&profileName=foo%232");
-  }
-
-  @Test
   public void loadDefault_sets_organization_parameter_if_defined_in_settings() throws IOException {
     settings.setProperty("sonar.organization", "my-org");
-    prepareCallWithResults();
+    WsTestUtil.mockStream(wsClient, "/api/qualityprofiles/search.protobuf?defaults=true&organization=my-org", createStreamOfProfiles("qp"));
+    WsTestUtil.mockStream(wsClient, "/api/qualityprofiles/search.protobuf?defaults=true&organization=my-org&profileName=foo", createStreamOfProfiles("qp"));
     underTest.loadDefault("foo");
-    verifyCalledPath("/api/qualityprofiles/search.protobuf?defaults=true&profileName=foo&organization=my-org");
+    verifyCalledPath("/api/qualityprofiles/search.protobuf?defaults=true&organization=my-org");
+    verifyCalledPath("/api/qualityprofiles/search.protobuf?defaults=true&organization=my-org&profileName=foo");
   }
 
   @Test
