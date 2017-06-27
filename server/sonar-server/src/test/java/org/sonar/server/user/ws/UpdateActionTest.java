@@ -227,7 +227,6 @@ public class UpdateActionTest {
       .setExternalIdentity("jo")
       .setExternalIdentityProvider("sonarqube");
     dbClient.userDao().insert(session, userDto);
-    session.commit();
-    userIndexer.index(userDto.getLogin());
+    userIndexer.commitAndIndex(session, userDto);
   }
 }

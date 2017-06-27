@@ -62,6 +62,11 @@
     </foreach>
   </select>
 
+  <select id="scrollAll" resultType="User" fetchSize="${_scrollFetchSize}" resultSetType="FORWARD_ONLY">
+    select <include refid="userColumns"/>
+    from users u
+  </select>
+
   <select id="selectByIds" parameterType="string" resultType="User">
     SELECT
     <include refid="userColumns"/>
@@ -115,10 +120,6 @@
       and u.is_root = ${_true}
       and u.login &lt;&gt; #{login}
   </select>
-
-  <delete id="deleteOrganisationMembership" parameterType="int">
-    DELETE FROM organization_members WHERE user_id=#{id,jdbcType=BIGINT}
-  </delete>
 
   <update id="deactivateUser" parameterType="map">
     UPDATE users SET

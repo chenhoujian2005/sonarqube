@@ -19,12 +19,16 @@
  */
 package org.sonar.server.user.index;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 import org.elasticsearch.action.index.IndexRequest;
+import org.sonar.core.util.stream.MoreCollectors;
 import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
 import org.sonar.db.es.EsQueueDto;
@@ -37,8 +41,7 @@ import org.sonar.server.es.StartupIndexer;
 
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
-import static org.sonar.db.DatabaseUtils.executeLargeInputsWithoutOutput;
+import static org.sonar.core.util.stream.MoreCollectors.toArrayList;
 import static org.sonar.server.user.index.UserIndexDefinition.INDEX_TYPE_USER;
 
 public class UserIndexer implements StartupIndexer {
@@ -57,108 +60,90 @@ public class UserIndexer implements StartupIndexer {
   }
 
   @Override
-  public void indexOnStartup(Set<IndexType> emptyIndexTypes) {
-    doIndex(newBulkIndexer(Size.LARGE), null);
+  public void indexOnStartup(Set<IndexType> uninitializedIndexTypes) {
+    try (DbSession dbSession = dbClient.openSession(false)) {
+      ListMultimap<String, String> organizationUuidsByLogin = ArrayListMultimap.create();
+      dbClient.organizationMemberDao().selectAllForUserIndexing(dbSession, organizationUuidsByLogin::put);
+
+      BulkIndexer bulkIndexer = newBulkIndexer(Size.LARGE);
+      bulkIndexer.start();
+      dbClient.userDao().scrollAll(dbSession,
+        // only index requests, no deletion requests.
+        // Deactivated users are not deleted but updated.
+        u -> bulkIndexer.add(newIndexRequest(u, organizationUuidsByLogin)));
+      bulkIndexer.stop();
+    }
   }
 
   public void commitAndIndex(DbSession dbSession, UserDto user) {
-    EsQueueDto queueItem = dbClient.esQueueDao().insert(dbSession, EsQueueDto.create(EsQueueDto.Type.USER, user.getLogin()));
+    commitAndIndexByLogins(dbSession, singletonList(user.getLogin()));
+  }
+
+  public void commitAndIndex(DbSession dbSession, Collection<UserDto> users) {
+    commitAndIndexByLogins(dbSession, Collections2.transform(users, UserDto::getLogin));
+  }
+
+  public void commitAndIndexByLogins(DbSession dbSession, Collection<String> logins) {
+    List<EsQueueDto> items = logins.stream()
+      .map(l -> EsQueueDto.create(EsQueueDto.Type.USER, l))
+      .collect(MoreCollectors.toArrayList());
+
+    dbClient.esQueueDao().insert(dbSession, items);
     dbSession.commit();
-    postCommit(dbSession, user, queueItem);
+    postCommit(dbSession, logins, items);
   }
 
   /**
    * Entry point for Byteman tests. See directory tests/resilience.
-   * The unused parameter "user" is used only by the Byteman script.
+   * The parameter "logins" is used only by the Byteman script.
    */
-  private void postCommit(DbSession dbSession, UserDto user, EsQueueDto queueItem) {
-    index(dbSession, singletonList(queueItem));
+  private void postCommit(DbSession dbSession, Collection<String> logins, Collection<EsQueueDto> items) {
+    index(dbSession, items);
   }
 
-  public void index(DbSession dbSession, Collection<EsQueueDto> esQueueItems) {
-    if (esQueueItems.isEmpty()) {
+  public void index(DbSession dbSession, Collection<EsQueueDto> items) {
+    if (items.isEmpty()) {
       return;
     }
-    esQueueItems.stream()
-      .forEach(i -> requireNonNull(i.getUuid(), () -> "BUG - " + i + " has not been persisted before indexing"));
+    List<String> logins = items
+      .stream()
+      .filter(i -> {
+        requireNonNull(i.getDocUuid(), () -> "BUG - " + i + " has not been persisted before indexing");
+        return true;
+      })
+      .map(EsQueueDto::getDocUuid)
+      .collect(toArrayList());
+
+    ListMultimap<String, String> organizationUuidsByLogin = ArrayListMultimap.create();
+    dbClient.organizationMemberDao().selectForUserIndexing(dbSession, logins, organizationUuidsByLogin::put);
 
     BulkIndexer bulkIndexer = newBulkIndexer(Size.REGULAR);
-    try (UserResultSetIterator rowIt = UserResultSetIterator.create(dbClient, dbSession, esQueueItems)) {
-      processResultSet(dbSession, bulkIndexer, esQueueItems, rowIt);
-    }
-  }
-
-  @Deprecated
-  public void index(String login) {
-    doIndex(newBulkIndexer(Size.REGULAR), singletonList(login));
-  }
-
-  @Deprecated
-  public void index(List<String> logins) {
-    if (!logins.isEmpty()) {
-      doIndex(newBulkIndexer(Size.REGULAR), logins);
-    }
-  }
-
-  @Deprecated
-  public void index(DbSession dbSession, List<String> logins) {
-    if (!logins.isEmpty()) {
-      doIndex(dbSession, newBulkIndexer(Size.REGULAR), logins);
-    }
-  }
-
-  @Deprecated
-  private void doIndex(BulkIndexer bulk, @Nullable List<String> logins) {
-    try (DbSession dbSession = dbClient.openSession(false)) {
-      doIndex(dbSession, bulk, logins);
-    }
-  }
-
-  @Deprecated
-  private void doIndex(DbSession dbSession, BulkIndexer bulk, @Nullable List<String> logins) {
-    if (logins == null) {
-      processLogins(bulk, dbSession, null);
-    } else {
-      executeLargeInputsWithoutOutput(logins, l -> processLogins(bulk, dbSession, l));
-    }
-  }
-
-  @Deprecated
-  private void processLogins(BulkIndexer bulk, DbSession dbSession, @Nullable List<String> logins) {
-    List<EsQueueDto> esQueueDtos = null;
-
-    if (logins != null) {
-      esQueueDtos = logins.stream()
-        .map(l -> {
-          EsQueueDto esQueueItem = EsQueueDto.create(EsQueueDto.Type.USER, l);
-          dbClient.esQueueDao().insert(dbSession, esQueueItem);
-          return esQueueItem;
-        }).collect(toList());
-      dbSession.commit();
-    }
-
-    try (UserResultSetIterator rowIt = UserResultSetIterator.create(dbClient, dbSession, esQueueDtos)) {
-      processResultSet(dbSession, bulk, esQueueDtos, rowIt);
-    }
-  }
-
-  private static void processResultSet(DbSession dbSession, BulkIndexer bulk, Collection<EsQueueDto> esQueueDtos, UserResultSetIterator users) {
-    bulk.start(dbSession, esQueueDtos);
-    while (users.hasNext()) {
-      UserDoc user = users.next();
+    bulkIndexer.start(dbSession, items);
+    dbClient.userDao().scrollByLogins(dbSession, logins,
       // only index requests, no deletion requests.
       // Deactivated users are not deleted but updated.
-      bulk.add(newIndexRequest(user));
-    }
-    bulk.stop();
+      u -> bulkIndexer.add(newIndexRequest(u, organizationUuidsByLogin)));
+    bulkIndexer.stop();
   }
 
   private BulkIndexer newBulkIndexer(Size bulkSize) {
     return new BulkIndexer(dbClient, esClient, UserIndexDefinition.INDEX_TYPE_USER.getIndex(), bulkSize);
   }
 
-  private static IndexRequest newIndexRequest(UserDoc user) {
-    return new IndexRequest(UserIndexDefinition.INDEX_TYPE_USER.getIndex(), UserIndexDefinition.INDEX_TYPE_USER.getType(), user.getId())
-      .source(user.getFields());
+  private static IndexRequest newIndexRequest(UserDto user, ListMultimap<String, String> organizationUuidsByLogins) {
+    UserDoc doc = new UserDoc(Maps.newHashMapWithExpectedSize(8));
+    // all the keys must be present, even if value is null
+    doc.setLogin(user.getLogin());
+    doc.setName(user.getName());
+    doc.setEmail(user.getEmail());
+    doc.setActive(user.isActive());
+    doc.setScmAccounts(UserDto.decodeScmAccounts(user.getScmAccounts()));
+    doc.setCreatedAt(user.getCreatedAt());
+    doc.setUpdatedAt(user.getUpdatedAt());
+    doc.setOrganizationUuids(organizationUuidsByLogins.get(user.getLogin()));
+
+    return new IndexRequest(UserIndexDefinition.INDEX_TYPE_USER.getIndex(), UserIndexDefinition.INDEX_TYPE_USER.getType())
+      .id(doc.getId())
+      .source(doc.getFields());
   }
 }

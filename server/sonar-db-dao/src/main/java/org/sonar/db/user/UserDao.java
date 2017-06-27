@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.CheckForNull;
@@ -36,6 +37,7 @@ import org.sonar.db.DbSession;
 import org.sonar.db.RowNotFoundException;
 
 import static org.sonar.db.DatabaseUtils.executeLargeInputs;
+import static org.sonar.db.DatabaseUtils.executeLargeInputsWithoutOutput;
 
 public class UserDao implements Dao {
 
@@ -141,6 +143,22 @@ public class UserDao implements Dao {
    */
   public boolean doesEmailExist(DbSession dbSession, String email) {
     return mapper(dbSession).countByEmail(email.toLowerCase(Locale.ENGLISH)) > 0;
+  }
+
+  public void scrollByLogins(DbSession dbSession, Collection<String> logins, Consumer<UserDto> consumer) {
+    UserMapper mapper = mapper(dbSession);
+
+    executeLargeInputsWithoutOutput(logins,
+      pageOfLogins -> mapper
+        .selectByLogins(pageOfLogins)
+        .forEach(consumer));
+  }
+
+  public void scrollAll(DbSession dbSession, Consumer<UserDto> consumer) {
+    mapper(dbSession).scrollAll(context -> {
+      UserDto user = (UserDto) context.getResultObject();
+      consumer.accept(user);
+    });
   }
 
   private static UserMapper mapper(DbSession session) {

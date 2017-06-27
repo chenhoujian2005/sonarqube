@@ -380,7 +380,7 @@ public class UserUpdater {
     userDto.setCryptedPassword(encryptPassword(password, saltHex));
   }
 
-  private void notifyNewUser(String login, String name, String email) {
+  private void notifyNewUser(String login, String name, @Nullable String email) {
     newUserNotifier.onNewUser(NewUserHandler.Context.builder()
       .setLogin(login)
       .setName(name)

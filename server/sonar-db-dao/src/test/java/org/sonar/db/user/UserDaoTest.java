@@ -19,6 +19,7 @@
  */
 package org.sonar.db.user;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.junit.Before;
@@ -28,6 +29,7 @@ import org.junit.rules.ExpectedException;
 import org.sonar.api.user.UserQuery;
 import org.sonar.api.utils.DateUtils;
 import org.sonar.api.utils.System2;
+import org.sonar.db.DatabaseUtils;
 import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
 import org.sonar.db.DbTester;
@@ -37,6 +39,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static org.apache.commons.lang.RandomStringUtils.randomAlphanumeric;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -560,6 +563,46 @@ public class UserDaoTest {
 
     commit(() -> underTest.setRoot(session, inactiveRootUser.getLogin(), false));
     assertThat(underTest.selectByLogin(session, inactiveRootUser.getLogin()).isRoot()).isTrue();
+  }
+
+  @Test
+  public void scrollByLogins() {
+    UserDto u1 = insertUser(true);
+    UserDto u2 = insertUser(false);
+    UserDto u3 = insertUser(false);
+
+    List<UserDto> result = new ArrayList<>();
+    underTest.scrollByLogins(db.getSession(), asList(u2.getLogin(), u3.getLogin(), "does not exist"), result::add);
+
+    assertThat(result).extracting(UserDto::getLogin, UserDto::getName)
+      .containsExactlyInAnyOrder(tuple(u2.getLogin(), u2.getName()), tuple(u3.getLogin(), u3.getName()));
+  }
+
+  @Test
+  public void scrollByLogins_scrolls_by_pages_of_1000_logins() {
+    List<String> logins = new ArrayList<>();
+    for (int i = 0; i < DatabaseUtils.PARTITION_SIZE_FOR_ORACLE + 10; i++) {
+      logins.add(insertUser(true).getLogin());
+    }
+
+    List<UserDto> result = new ArrayList<>();
+    underTest.scrollByLogins(db.getSession(), logins, result::add);
+
+    assertThat(result)
+      .extracting(UserDto::getLogin)
+      .containsExactlyInAnyOrder(logins.toArray(new String[0]));
+  }
+
+  @Test
+  public void scrollAll() {
+    UserDto u1 = insertUser(true);
+    UserDto u2 = insertUser(false);
+
+    List<UserDto> result = new ArrayList<>();
+    underTest.scrollAll(db.getSession(), result::add);
+
+    assertThat(result).extracting(UserDto::getLogin, UserDto::getName)
+      .containsExactlyInAnyOrder(tuple(u1.getLogin(), u1.getName()), tuple(u2.getLogin(), u2.getName()));
   }
 
   private void commit(Runnable runnable) {
