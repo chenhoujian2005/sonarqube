@@ -24,7 +24,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.sonar.api.config.MapSettings;
-import org.sonar.api.utils.System2;
 import org.sonar.db.DbTester;
 import org.sonar.server.es.EsTester;
 import org.sonar.server.exceptions.BadRequestException;
@@ -60,7 +59,6 @@ public class ChangePasswordActionTest {
   private TestOrganizationFlags organizationFlags = TestOrganizationFlags.standalone();
 
   private UserUpdater userUpdater = new UserUpdater(mock(NewUserNotifier.class), db.getDbClient(), new UserIndexer(db.getDbClient(), esTester.client()),
-    System2.INSTANCE,
     organizationFlags,
     TestDefaultOrganizationProvider.from(db),
     mock(OrganizationCreation.class),

@@ -105,7 +105,7 @@ class UserResultSetIterator extends ResultSetIterator<UserDoc> {
 
   @Override
   protected UserDoc read(ResultSet rs) throws SQLException {
-    UserDoc doc = new UserDoc(Maps.newHashMapWithExpectedSize(8));
+    UserDoc doc = new UserDoc(Maps.newHashMapWithExpectedSize(6));
 
     String login = rs.getString(1);
 
@@ -115,8 +115,6 @@ class UserResultSetIterator extends ResultSetIterator<UserDoc> {
     doc.setEmail(rs.getString(3));
     doc.setActive(rs.getBoolean(4));
     doc.setScmAccounts(UserDto.decodeScmAccounts(rs.getString(5)));
-    doc.setCreatedAt(rs.getLong(6));
-    doc.setUpdatedAt(rs.getLong(7));
     doc.setOrganizationUuids(organizationUuidsByLogins.get(login));
     return doc;
   }

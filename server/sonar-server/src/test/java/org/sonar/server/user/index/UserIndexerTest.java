@@ -55,9 +55,7 @@ public class UserIndexerTest {
   @Test
   public void indexOnStartup_adds_all_users_to_index() {
     UserDto user = db.users().insertUser(u -> u
-      .setScmAccounts(asList("user_1", "u1"))
-      .setCreatedAt(1_000L)
-      .setUpdatedAt(2_000L));
+      .setScmAccounts(asList("user_1", "u1")));
 
     underTest.indexOnStartup(new HashSet<>());
 

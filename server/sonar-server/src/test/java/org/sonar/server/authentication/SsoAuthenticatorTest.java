@@ -101,7 +101,7 @@ public class SsoAuthenticatorTest {
 
   private UserIdentityAuthenticator userIdentityAuthenticator = new UserIdentityAuthenticator(
     db.getDbClient(),
-    new UserUpdater(mock(NewUserNotifier.class), db.getDbClient(), mock(UserIndexer.class), System2.INSTANCE, organizationFlags, defaultOrganizationProvider, organizationCreation,
+    new UserUpdater(mock(NewUserNotifier.class), db.getDbClient(), mock(UserIndexer.class), organizationFlags, defaultOrganizationProvider, organizationCreation,
       new DefaultGroupFinder(db.getDbClient()), settings),
     defaultOrganizationProvider, organizationFlags, new DefaultGroupFinder(db.getDbClient()));
 

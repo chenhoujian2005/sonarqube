@@ -31,7 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.sonar.api.config.MapSettings;
 import org.sonar.api.platform.NewUserHandler;
 import org.sonar.api.utils.System2;
-import org.sonar.api.utils.internal.TestSystem2;
+import org.sonar.api.utils.internal.AlwaysIncreasingSystem2;
 import org.sonar.db.DbClient;
 import org.sonar.db.DbSession;
 import org.sonar.db.DbTester;
@@ -67,11 +67,9 @@ import static org.sonar.server.user.ExternalIdentity.SQ_AUTHORITY;
 
 public class UserUpdaterTest {
 
-  private static final long NOW = 1418215735482L;
-  private static final long PAST = 1000000000000L;
   private static final String DEFAULT_LOGIN = "marius";
 
-  private System2 system2 = new TestSystem2().setNow(NOW);
+  private System2 system2 = new AlwaysIncreasingSystem2();
 
   @Rule
   public ExpectedException expectedException = ExpectedException.none();
@@ -91,7 +89,7 @@ public class UserUpdaterTest {
   private DefaultOrganizationProvider defaultOrganizationProvider = TestDefaultOrganizationProvider.from(db);
   private TestOrganizationFlags organizationFlags = TestOrganizationFlags.standalone();
   private MapSettings settings = new MapSettings();
-  private UserUpdater underTest = new UserUpdater(newUserNotifier, dbClient, userIndexer, system2, organizationFlags, defaultOrganizationProvider, organizationCreation,
+  private UserUpdater underTest = new UserUpdater(newUserNotifier, dbClient, userIndexer, organizationFlags, defaultOrganizationProvider, organizationCreation,
     new DefaultGroupFinder(dbClient), settings);
 
   @Test
@@ -116,8 +114,9 @@ public class UserUpdaterTest {
 
     assertThat(dto.getSalt()).isNotNull();
     assertThat(dto.getCryptedPassword()).isNotNull();
-    assertThat(dto.getCreatedAt()).isEqualTo(1418215735482L);
-    assertThat(dto.getUpdatedAt()).isEqualTo(1418215735482L);
+    assertThat(dto.getCreatedAt())
+      .isPositive()
+      .isEqualTo(dto.getUpdatedAt());
 
     assertThat(dbClient.userDao().selectByLogin(session, "user").getId()).isEqualTo(dto.getId());
     List<SearchHit> indexUsers = es.getDocuments(UserIndexDefinition.INDEX_TYPE_USER);
@@ -557,10 +556,8 @@ public class UserUpdaterTest {
 
   @Test
   public void reactivate_user_when_creating_user_with_existing_login() {
-    db.users().insertUser(newDisabledUser(DEFAULT_LOGIN)
-      .setLocal(false)
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+    UserDto user = db.users().insertUser(newDisabledUser(DEFAULT_LOGIN)
+      .setLocal(false));
     createDefaultGroup();
 
     UserDto dto = underTest.create(db.getSession(), NewUser.builder()
@@ -579,19 +576,17 @@ public class UserUpdaterTest {
 
     assertThat(dto.getSalt()).isNotNull().isNotEqualTo("79bd6a8e79fb8c76ac8b121cc7e8e11ad1af8365");
     assertThat(dto.getCryptedPassword()).isNotNull().isNotEqualTo("650d2261c98361e2f67f90ce5c65a95e7d8ea2fg");
-    assertThat(dto.getCreatedAt()).isEqualTo(PAST);
-    assertThat(dto.getUpdatedAt()).isEqualTo(NOW);
+    assertThat(dto.getCreatedAt()).isEqualTo(user.getCreatedAt());
+    assertThat(dto.getUpdatedAt()).isGreaterThan(user.getCreatedAt());
 
     assertThat(dbClient.userDao().selectByLogin(session, DEFAULT_LOGIN).isActive()).isTrue();
   }
 
   @Test
   public void reactivate_user_not_having_password() {
-    db.users().insertUser(newDisabledUser("marius").setName("Marius").setEmail("marius@lesbronzes.fr")
+    UserDto user = db.users().insertUser(newDisabledUser("marius").setName("Marius").setEmail("marius@lesbronzes.fr")
       .setSalt(null)
-      .setCryptedPassword(null)
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setCryptedPassword(null));
     createDefaultGroup();
 
     UserDto dto = underTest.create(db.getSession(), NewUser.builder()
@@ -608,16 +603,14 @@ public class UserUpdaterTest {
 
     assertThat(dto.getSalt()).isNull();
     assertThat(dto.getCryptedPassword()).isNull();
-    assertThat(dto.getCreatedAt()).isEqualTo(PAST);
-    assertThat(dto.getUpdatedAt()).isEqualTo(NOW);
+    assertThat(dto.getCreatedAt()).isEqualTo(user.getCreatedAt());
+    assertThat(dto.getUpdatedAt()).isGreaterThan(user.getCreatedAt());
   }
 
   @Test
   public void update_external_provider_when_reactivating_user() {
     db.users().insertUser(newDisabledUser(DEFAULT_LOGIN)
-      .setLocal(true)
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setLocal(true));
     createDefaultGroup();
 
     underTest.create(db.getSession(), NewUser.builder()
@@ -635,9 +628,7 @@ public class UserUpdaterTest {
 
   @Test
   public void fail_to_reactivate_user_if_not_disabled() {
-    db.users().insertUser(newLocalUser("marius", "Marius", "marius@lesbronzes.fr")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+    db.users().insertUser(newLocalUser("marius", "Marius", "marius@lesbronzes.fr"));
     createDefaultGroup();
 
     expectedException.expect(IllegalArgumentException.class);
@@ -655,9 +646,7 @@ public class UserUpdaterTest {
   public void associate_default_groups_when_reactivating_user_and_organizations_are_disabled() {
     organizationFlags.setEnabled(false);
     UserDto userDto = db.users().insertUser(newDisabledUser(DEFAULT_LOGIN)
-      .setLocal(true)
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setLocal(true));
     db.organizations().insertForUuid("org1");
     GroupDto groupDto = db.users().insertGroup(GroupTesting.newGroupDto().setName("sonar-devs").setOrganizationUuid("org1"));
     db.users().insertMember(groupDto, userDto);
@@ -679,9 +668,7 @@ public class UserUpdaterTest {
   public void does_not_associate_default_groups_when_reactivating_user_and_organizations_are_enabled() {
     organizationFlags.setEnabled(true);
     UserDto userDto = db.users().insertUser(newDisabledUser(DEFAULT_LOGIN)
-      .setLocal(true)
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setLocal(true));
     db.organizations().insertForUuid("org1");
     GroupDto groupDto = db.users().insertGroup(GroupTesting.newGroupDto().setName("sonar-devs").setOrganizationUuid("org1"));
     db.users().insertMember(groupDto, userDto);
@@ -760,9 +747,7 @@ public class UserUpdaterTest {
     UserDto user = db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@email.com")
       .setScmAccounts(asList("ma", "marius33"))
       .setSalt("79bd6a8e79fb8c76ac8b121cc7e8e11ad1af8365")
-      .setCryptedPassword("650d2261c98361e2f67f90ce5c65a95e7d8ea2fg")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setCryptedPassword("650d2261c98361e2f67f90ce5c65a95e7d8ea2fg"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -780,8 +765,8 @@ public class UserUpdaterTest {
 
     assertThat(updatedUser.getSalt()).isNotEqualTo(user.getSalt());
     assertThat(updatedUser.getCryptedPassword()).isNotEqualTo(user.getCryptedPassword());
-    assertThat(updatedUser.getCreatedAt()).isEqualTo(PAST);
-    assertThat(updatedUser.getUpdatedAt()).isEqualTo(NOW);
+    assertThat(updatedUser.getCreatedAt()).isEqualTo(user.getCreatedAt());
+    assertThat(updatedUser.getUpdatedAt()).isGreaterThan(user.getCreatedAt());
 
     List<SearchHit> indexUsers = es.getDocuments(UserIndexDefinition.INDEX_TYPE_USER);
     assertThat(indexUsers).hasSize(1);
@@ -794,9 +779,7 @@ public class UserUpdaterTest {
 
   @Test
   public void update_user_external_identity_when_user_was_not_local() {
-    db.users().insertUser(UserTesting.newExternalUser(DEFAULT_LOGIN, "Marius", "marius@email.com")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+    UserDto user = db.users().insertUser(UserTesting.newExternalUser(DEFAULT_LOGIN, "Marius", "marius@email.com"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -809,14 +792,12 @@ public class UserUpdaterTest {
     UserDto dto = dbClient.userDao().selectByLogin(session, DEFAULT_LOGIN);
     assertThat(dto.getExternalIdentity()).isEqualTo("john");
     assertThat(dto.getExternalIdentityProvider()).isEqualTo("github");
-    assertThat(dto.getUpdatedAt()).isEqualTo(NOW);
+    assertThat(dto.getUpdatedAt()).isGreaterThan(user.getCreatedAt());
   }
 
   @Test
   public void update_user_external_identity_when_user_was_local() {
-    db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@email.com")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+    UserDto user = db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@email.com"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -832,7 +813,7 @@ public class UserUpdaterTest {
     // Password must be removed
     assertThat(dto.getCryptedPassword()).isNull();
     assertThat(dto.getSalt()).isNull();
-    assertThat(dto.getUpdatedAt()).isEqualTo(NOW);
+    assertThat(dto.getUpdatedAt()).isGreaterThan(user.getCreatedAt());
   }
 
   @Test
@@ -840,9 +821,7 @@ public class UserUpdaterTest {
     UserDto user = db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@lesbronzes.fr")
       .setScmAccounts(asList("ma", "marius33"))
       .setSalt("salt")
-      .setCryptedPassword("crypted password")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setCryptedPassword("crypted password"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -860,8 +839,8 @@ public class UserUpdaterTest {
 
     assertThat(dto.getSalt()).isNotEqualTo(user.getSalt());
     assertThat(dto.getCryptedPassword()).isNotEqualTo(user.getCryptedPassword());
-    assertThat(dto.getCreatedAt()).isEqualTo(PAST);
-    assertThat(dto.getUpdatedAt()).isEqualTo(NOW);
+    assertThat(dto.getCreatedAt()).isEqualTo(user.getCreatedAt());
+    assertThat(dto.getUpdatedAt()).isGreaterThan(user.getUpdatedAt());
 
     List<SearchHit> indexUsers = es.getDocuments(UserIndexDefinition.INDEX_TYPE_USER);
     assertThat(indexUsers).hasSize(1);
@@ -875,9 +854,7 @@ public class UserUpdaterTest {
   @Test
   public void update_user_with_scm_accounts_containing_blank_entry() {
     db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@lesbronzes.fr")
-      .setScmAccounts(asList("ma", "marius33"))
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setScmAccounts(asList("ma", "marius33")));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -896,9 +873,7 @@ public class UserUpdaterTest {
     db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@lesbronzes.fr")
       .setScmAccounts(asList("ma", "marius33"))
       .setSalt("salt")
-      .setCryptedPassword("crypted password")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setCryptedPassword("crypted password"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -920,9 +895,7 @@ public class UserUpdaterTest {
     db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@lesbronzes.fr")
       .setScmAccounts(asList("ma", "marius33"))
       .setSalt("salt")
-      .setCryptedPassword("crypted password")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setCryptedPassword("crypted password"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -944,9 +917,7 @@ public class UserUpdaterTest {
     db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@lesbronzes.fr")
       .setScmAccounts(asList("ma", "marius33"))
       .setSalt("salt")
-      .setCryptedPassword("crypted password")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setCryptedPassword("crypted password"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -966,9 +937,7 @@ public class UserUpdaterTest {
   @Test
   public void update_scm_accounts_with_same_values() {
     db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@lesbronzes.fr")
-      .setScmAccounts(asList("ma", "marius33"))
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setScmAccounts(asList("ma", "marius33")));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -982,9 +951,7 @@ public class UserUpdaterTest {
   @Test
   public void remove_scm_accounts() {
     db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@lesbronzes.fr")
-      .setScmAccounts(asList("ma", "marius33"))
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setScmAccounts(asList("ma", "marius33")));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -1000,9 +967,7 @@ public class UserUpdaterTest {
     db.users().insertUser(newLocalUser(DEFAULT_LOGIN, "Marius", "marius@lesbronzes.fr")
       .setScmAccounts(asList("ma", "marius33"))
       .setSalt("salt")
-      .setCryptedPassword("crypted password")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setCryptedPassword("crypted password"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN)
@@ -1023,34 +988,30 @@ public class UserUpdaterTest {
   public void update_only_external_identity_id() {
     db.users().insertUser(UserTesting.newExternalUser(DEFAULT_LOGIN, "Marius", "marius@email.com")
       .setExternalIdentity("john")
-      .setExternalIdentityProvider("github")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setExternalIdentityProvider("github"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN).setExternalIdentity(new ExternalIdentity("github", "john.smith")));
     session.commit();
 
     assertThat(dbClient.userDao().selectByLogin(session, DEFAULT_LOGIN))
-      .extracting(UserDto::getExternalIdentity, UserDto::getExternalIdentityProvider, UserDto::getUpdatedAt)
-      .containsOnly("john.smith", "github", NOW);
+      .extracting(UserDto::getExternalIdentity, UserDto::getExternalIdentityProvider)
+      .containsOnly("john.smith", "github");
   }
 
   @Test
   public void update_only_external_identity_provider() {
     db.users().insertUser(UserTesting.newExternalUser(DEFAULT_LOGIN, "Marius", "marius@email.com")
       .setExternalIdentity("john")
-      .setExternalIdentityProvider("github")
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST));
+      .setExternalIdentityProvider("github"));
     createDefaultGroup();
 
     underTest.update(session, UpdateUser.create(DEFAULT_LOGIN).setExternalIdentity(new ExternalIdentity("bitbucket", "john")));
     session.commit();
 
     assertThat(dbClient.userDao().selectByLogin(session, DEFAULT_LOGIN))
-      .extracting(UserDto::getExternalIdentity, UserDto::getExternalIdentityProvider, UserDto::getUpdatedAt)
-      .containsOnly("john", "bitbucket", NOW);
+      .extracting(UserDto::getExternalIdentity, UserDto::getExternalIdentityProvider)
+      .containsOnly("john", "bitbucket");
   }
 
   @Test
@@ -1058,9 +1019,7 @@ public class UserUpdaterTest {
     UserDto user = UserTesting.newExternalUser(DEFAULT_LOGIN, "Marius", "marius@email.com")
       .setExternalIdentity("john")
       .setExternalIdentityProvider("github")
-      .setScmAccounts(asList("ma1", "ma2"))
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST);
+      .setScmAccounts(asList("ma1", "ma2"));
     db.users().insertUser(user);
     createDefaultGroup();
 
@@ -1071,7 +1030,7 @@ public class UserUpdaterTest {
       .setExternalIdentity(new ExternalIdentity(user.getExternalIdentityProvider(), user.getExternalIdentity())));
     session.commit();
 
-    assertThat(dbClient.userDao().selectByLogin(session, DEFAULT_LOGIN).getUpdatedAt()).isEqualTo(PAST);
+    assertThat(dbClient.userDao().selectByLogin(session, DEFAULT_LOGIN).getUpdatedAt()).isEqualTo(user.getUpdatedAt());
   }
 
   @Test
@@ -1079,9 +1038,7 @@ public class UserUpdaterTest {
     UserDto user = UserTesting.newExternalUser(DEFAULT_LOGIN, "Marius", "marius@email.com")
       .setExternalIdentity("john")
       .setExternalIdentityProvider("github")
-      .setScmAccounts(asList("ma1", "ma2"))
-      .setCreatedAt(PAST)
-      .setUpdatedAt(PAST);
+      .setScmAccounts(asList("ma1", "ma2"));
     db.users().insertUser(user);
     createDefaultGroup();
 
@@ -1092,7 +1049,7 @@ public class UserUpdaterTest {
       .setExternalIdentity(new ExternalIdentity(user.getExternalIdentityProvider(), user.getExternalIdentity())));
     session.commit();
 
-    assertThat(dbClient.userDao().selectByLogin(session, DEFAULT_LOGIN).getUpdatedAt()).isEqualTo(PAST);
+    assertThat(dbClient.userDao().selectByLogin(session, DEFAULT_LOGIN).getUpdatedAt()).isEqualTo(user.getUpdatedAt());
   }
 
   @Test

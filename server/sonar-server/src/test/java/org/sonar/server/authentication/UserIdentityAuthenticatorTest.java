@@ -26,7 +26,6 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.sonar.api.config.MapSettings;
 import org.sonar.api.server.authentication.UserIdentity;
-import org.sonar.api.utils.System2;
 import org.sonar.api.utils.internal.AlwaysIncreasingSystem2;
 import org.sonar.core.util.stream.MoreCollectors;
 import org.sonar.db.DbTester;
@@ -84,7 +83,6 @@ public class UserIdentityAuthenticatorTest {
     mock(NewUserNotifier.class),
     db.getDbClient(),
     mock(UserIndexer.class),
-    System2.INSTANCE,
     organizationFlags,
     defaultOrganizationProvider,
     organizationCreation,

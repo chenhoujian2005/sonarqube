@@ -76,7 +76,7 @@ public class UpdateActionTest {
     dbTester.users().insertDefaultGroup(dbTester.getDefaultOrganization(), "sonar-users");
     userIndexer = new UserIndexer(dbClient, esTester.client());
     tester = new WsTester(new UsersWs(new UpdateAction(
-      new UserUpdater(mock(NewUserNotifier.class), dbClient, userIndexer, system2, organizationFlags, defaultOrganizationProvider, ORGANIZATION_CREATION_NOT_USED_FOR_UPDATE,
+      new UserUpdater(mock(NewUserNotifier.class), dbClient, userIndexer, organizationFlags, defaultOrganizationProvider, ORGANIZATION_CREATION_NOT_USED_FOR_UPDATE,
         new DefaultGroupFinder(dbTester.getDbClient()), settings),
       userSessionRule,
       new UserJsonWriter(userSessionRule), dbClient)));

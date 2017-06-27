@@ -99,12 +99,17 @@ public class UserDao implements Dao {
   }
 
   public UserDto insert(DbSession session, UserDto dto) {
-    mapper(session).insert(dto);
+    long now = system2.now();
+    mapper(session).insert(dto, now);
+    dto.setCreatedAt(now);
+    dto.setUpdatedAt(now);
     return dto;
   }
 
   public UserDto update(DbSession session, UserDto dto) {
-    mapper(session).update(dto);
+    long now = system2.now();
+    mapper(session).update(dto, now);
+    dto.setUpdatedAt(now);
     return dto;
   }
 
@@ -112,8 +117,8 @@ public class UserDao implements Dao {
     mapper(session).setRoot(login, root, system2.now());
   }
 
-  public void deactivateUserById(DbSession dbSession, int userId) {
-    mapper(dbSession).deactivateUser(userId, system2.now());
+  public void deactivateUser(DbSession dbSession, UserDto user) {
+    mapper(dbSession).deactivateUser(user.getLogin(), system2.now());
   }
 
   @CheckForNull

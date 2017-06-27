@@ -61,12 +61,12 @@ public interface UserMapper {
    */
   long countRootUsersButLogin(@Param("login") String login);
 
-  void insert(UserDto userDto);
+  void insert(@Param("user") UserDto userDto, @Param("now") long now);
 
-  void update(UserDto userDto);
+  void update(@Param("user") UserDto userDto, @Param("now") long now);
 
   void setRoot(@Param("login") String login, @Param("root") boolean root, @Param("now") long now);
 
-  void deactivateUser(@Param("id") int userId, @Param("now") long now);
+  void deactivateUser(@Param("login") String login, @Param("now") long now);
 
 }

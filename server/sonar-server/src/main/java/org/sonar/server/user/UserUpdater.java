@@ -73,19 +73,17 @@ public class UserUpdater {
   private final NewUserNotifier newUserNotifier;
   private final DbClient dbClient;
   private final UserIndexer userIndexer;
-  private final System2 system2;
   private final OrganizationFlags organizationFlags;
   private final DefaultOrganizationProvider defaultOrganizationProvider;
   private final OrganizationCreation organizationCreation;
   private final DefaultGroupFinder defaultGroupFinder;
   private final Settings settings;
 
-  public UserUpdater(NewUserNotifier newUserNotifier, DbClient dbClient, UserIndexer userIndexer, System2 system2, OrganizationFlags organizationFlags,
-    DefaultOrganizationProvider defaultOrganizationProvider, OrganizationCreation organizationCreation, DefaultGroupFinder defaultGroupFinder, Settings settings) {
+  public UserUpdater(NewUserNotifier newUserNotifier, DbClient dbClient, UserIndexer userIndexer, OrganizationFlags organizationFlags,
+                     DefaultOrganizationProvider defaultOrganizationProvider, OrganizationCreation organizationCreation, DefaultGroupFinder defaultGroupFinder, Settings settings) {
     this.newUserNotifier = newUserNotifier;
     this.dbClient = dbClient;
     this.userIndexer = userIndexer;
-    this.system2 = system2;
     this.organizationFlags = organizationFlags;
     this.defaultOrganizationProvider = defaultOrganizationProvider;
     this.organizationCreation = organizationCreation;
@@ -355,8 +353,7 @@ public class UserUpdater {
   }
 
   private UserDto saveUser(DbSession dbSession, UserDto userDto) {
-    long now = system2.now();
-    userDto.setActive(true).setCreatedAt(now).setUpdatedAt(now);
+    userDto.setActive(true);
     UserDto res = dbClient.userDao().insert(dbSession, userDto);
     addUserToDefaultOrganizationAndDefaultGroup(dbSession, userDto);
     organizationCreation.createForUser(dbSession, userDto);
@@ -365,8 +362,7 @@ public class UserUpdater {
   }
 
   private void updateUser(DbSession dbSession, UserDto userDto) {
-    long now = system2.now();
-    userDto.setActive(true).setUpdatedAt(now);
+    userDto.setActive(true);
     dbClient.userDao().update(dbSession, userDto);
     userIndexer.commitAndIndex(dbSession, userDto);
   }
