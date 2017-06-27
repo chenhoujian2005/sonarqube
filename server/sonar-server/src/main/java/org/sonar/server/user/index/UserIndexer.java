@@ -37,6 +37,7 @@ import org.sonar.server.es.BulkIndexer;
 import org.sonar.server.es.BulkIndexer.Size;
 import org.sonar.server.es.EsClient;
 import org.sonar.server.es.IndexType;
+import org.sonar.server.es.ResilientBulkIndexer;
 import org.sonar.server.es.StartupIndexer;
 
 import static java.util.Collections.singletonList;
@@ -117,8 +118,8 @@ public class UserIndexer implements StartupIndexer {
     ListMultimap<String, String> organizationUuidsByLogin = ArrayListMultimap.create();
     dbClient.organizationMemberDao().selectForUserIndexing(dbSession, logins, organizationUuidsByLogin::put);
 
-    BulkIndexer bulkIndexer = newBulkIndexer(Size.REGULAR);
-    bulkIndexer.start(dbSession, items);
+    ResilientBulkIndexer bulkIndexer = newBulkIndexer(dbSession, Size.REGULAR);
+    bulkIndexer.start(items);
     dbClient.userDao().scrollByLogins(dbSession, logins,
       // only index requests, no deletion requests.
       // Deactivated users are not deleted but updated.
@@ -126,8 +127,12 @@ public class UserIndexer implements StartupIndexer {
     bulkIndexer.stop();
   }
 
+  private ResilientBulkIndexer newBulkIndexer(DbSession dbSession, Size bulkSize) {
+    return new ResilientBulkIndexer(dbClient, dbSession, esClient, UserIndexDefinition.INDEX_TYPE_USER.getIndex(), bulkSize);
+  }
+
   private BulkIndexer newBulkIndexer(Size bulkSize) {
-    return new BulkIndexer(dbClient, esClient, UserIndexDefinition.INDEX_TYPE_USER.getIndex(), bulkSize);
+    return new BulkIndexer(esClient, UserIndexDefinition.INDEX_TYPE_USER.getIndex(), bulkSize);
   }
 
   private static IndexRequest newIndexRequest(UserDto user, ListMultimap<String, String> organizationUuidsByLogins) {
