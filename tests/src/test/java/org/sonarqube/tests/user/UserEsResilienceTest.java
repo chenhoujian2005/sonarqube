@@ -87,7 +87,7 @@ public class UserEsResilienceTest {
 
   private static String findBytemanScript() {
     // see pom.xml, Maven copies and renames the artifact.
-    File script = new File("../../tests/resilience/user_indexer.btm");
+    File script = new File("resilience/user_indexer.btm");
     if (!script.exists()) {
       throw new IllegalStateException("Can't find " + script);
     }
