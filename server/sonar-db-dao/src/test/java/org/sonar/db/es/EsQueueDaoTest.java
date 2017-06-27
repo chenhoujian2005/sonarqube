@@ -19,13 +19,11 @@
  */
 package org.sonar.db.es;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
 import java.util.stream.IntStream;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.sonar.api.utils.internal.TestSystem2;
@@ -37,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class EsQueueDaoTest {
 
-  private static TestSystem2 system2 = new TestSystem2();
+  private static TestSystem2 system2 = new TestSystem2().setNow(1_000);
 
   @Rule
   public DbTester dbTester = DbTester.create(system2);
@@ -45,13 +43,8 @@ public class EsQueueDaoTest {
   private DbSession dbSession = dbTester.getSession();
   private EsQueueDao underTest = dbTester.getDbClient().esQueueDao();
 
-  @BeforeClass
-  public static void setSystem2() {
-    system2.setNow(1_000);
-  }
-
   @Test
-  public void insert_data() throws SQLException {
+  public void insert_data()  {
     int nbOfInsert = 10 + new Random().nextInt(20);
     List<EsQueueDto> esQueueDtos = new ArrayList<>();
     IntStream.rangeClosed(1, nbOfInsert).forEach(
@@ -63,7 +56,7 @@ public class EsQueueDaoTest {
   }
 
   @Test
-  public void delete_unknown_EsQueueDto_does_not_throw_exception() throws SQLException {
+  public void delete_unknown_EsQueueDto_does_not_throw_exception() {
     int nbOfInsert = 10 + new Random().nextInt(20);
     List<EsQueueDto> esQueueDtos = new ArrayList<>();
     IntStream.rangeClosed(1, nbOfInsert).forEach(
@@ -77,7 +70,7 @@ public class EsQueueDaoTest {
   }
 
   @Test
-  public void delete_EsQueueDto_does_not_throw_exception() throws SQLException {
+  public void delete_EsQueueDto_does_not_throw_exception() {
     int nbOfInsert = 10 + new Random().nextInt(20);
     List<EsQueueDto> esQueueDtos = new ArrayList<>();
     IntStream.rangeClosed(1, nbOfInsert).forEach(
@@ -92,7 +85,7 @@ public class EsQueueDaoTest {
   }
 
   @Test
-  public void selectForRecovery_must_returns_10_000_when_there_is_more_rows() throws SQLException {
+  public void selectForRecovery_must_returns_10_000_when_there_is_more_rows()  {
     int nbOfInsert = 10_000 + new Random().nextInt(100);
     system2.setNow(1_000L);
     List<EsQueueDto> esQueueDtos = new ArrayList<>();
@@ -104,12 +97,12 @@ public class EsQueueDaoTest {
     Collection<EsQueueDto> rowsToRecover = underTest.selectForRecovery(dbSession, 2_000, 0);
 
     assertThat(rowsToRecover).hasSize(10_000);
-    rowsToRecover.stream().forEach(
+    rowsToRecover.forEach(
       r -> assertThat(r.getDocType()).isEqualTo(EsQueueDto.Type.USER));
   }
 
   @Test
-  public void selectForRecovery_must_returns_only_rows_between_limits() throws SQLException {
+  public void selectForRecovery_must_returns_only_rows_between_limits()  {
     List<EsQueueDto> esQueueDtos = new ArrayList<>();
     // Insert 100 rows before the selection
     system2.setNow(1_000L);
