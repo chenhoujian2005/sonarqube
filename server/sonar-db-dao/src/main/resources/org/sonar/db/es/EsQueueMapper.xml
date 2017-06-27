@@ -52,7 +52,7 @@
     ) t
     ) t
     where
-    t.rn &lt; #{limit, jdbcType=INTEGER}
+    t.rn &lt;= #{limit, jdbcType=INTEGER}
   </select>
 
   <select id="selectForRecovery" parameterType="map" resultType="org.sonar.db.es.EsQueueDto" databaseId="mssql">
