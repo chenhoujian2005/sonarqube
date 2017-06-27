@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang.StringUtils;
 import org.sonar.api.resources.Scopes;
 import org.sonar.api.utils.System2;
 import org.sonar.db.Dao;
@@ -39,6 +40,7 @@ import org.sonar.db.MyBatis;
 import org.sonar.db.WildcardPosition;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.commons.lang.StringUtils.repeat;
 import static org.sonar.db.DaoDatabaseUtils.buildLikeValue;
 import static org.sonar.db.DatabaseUtils.executeLargeInputs;
 import static org.sonar.db.DatabaseUtils.executeLargeInputsWithoutOutput;
@@ -89,7 +91,7 @@ public class PropertiesDao implements Dao {
     String sql = "SELECT count(1) FROM properties pp " +
       "left outer join projects pj on pp.resource_id = pj.id " +
       "where pp.user_id is not null and (pp.resource_id is null or pj.uuid=?) " +
-      "and (" + DatabaseUtils.repeatCondition("pp.prop_key like ?", dispatcherKeys.size(), "or") + ")";
+      "and (" + repeat("pp.prop_key like ?", " or ", dispatcherKeys.size()) + ")";
     PreparedStatement res = connection.prepareStatement(sql);
     res.setString(1, projectUuid);
     int index = 2;
