@@ -138,8 +138,6 @@ public class UserIndexer implements StartupIndexer {
     doc.setEmail(user.getEmail());
     doc.setActive(user.isActive());
     doc.setScmAccounts(UserDto.decodeScmAccounts(user.getScmAccounts()));
-    doc.setCreatedAt(user.getCreatedAt());
-    doc.setUpdatedAt(user.getUpdatedAt());
     doc.setOrganizationUuids(organizationUuidsByLogins.get(user.getLogin()));
 
     return new IndexRequest(UserIndexDefinition.INDEX_TYPE_USER.getIndex(), UserIndexDefinition.INDEX_TYPE_USER.getType())

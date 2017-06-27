@@ -69,8 +69,6 @@ public class UserIndexerTest {
     assertThat(doc.email()).isEqualTo(user.getEmail());
     assertThat(doc.active()).isEqualTo(user.isActive());
     assertThat(doc.scmAccounts()).isEqualTo(user.getScmAccountsAsList());
-    assertThat(doc.createdAt()).isEqualTo(user.getCreatedAt());
-    assertThat(doc.updatedAt()).isEqualTo(user.getUpdatedAt());
   }
 
   @Test
