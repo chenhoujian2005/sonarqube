@@ -56,14 +56,14 @@ public class TestIndexDefinition implements IndexDefinition {
 
     NewIndex.NewIndexType mapping = index.createType(INDEX_TYPE_TEST.getType());
     mapping.setAttribute("_routing", ImmutableMap.of("required", true));
-    mapping.stringFieldBuilder(FIELD_PROJECT_UUID).disableNorms().build();
-    mapping.stringFieldBuilder(FIELD_FILE_UUID).disableNorms().build();
-    mapping.stringFieldBuilder(FIELD_TEST_UUID).disableNorms().build();
-    mapping.stringFieldBuilder(FIELD_NAME).disableNorms().disableSearch().build();
-    mapping.stringFieldBuilder(FIELD_STATUS).disableNorms().disableSearch().build();
+    mapping.keywordFieldBuilder(FIELD_PROJECT_UUID).disableNorms().build();
+    mapping.keywordFieldBuilder(FIELD_FILE_UUID).disableNorms().build();
+    mapping.keywordFieldBuilder(FIELD_TEST_UUID).disableNorms().build();
+    mapping.keywordFieldBuilder(FIELD_NAME).disableNorms().disableSearch().build();
+    mapping.keywordFieldBuilder(FIELD_STATUS).disableNorms().disableSearch().build();
     mapping.createLongField(FIELD_DURATION_IN_MS);
-    mapping.stringFieldBuilder(FIELD_MESSAGE).disableNorms().disableSearch().build();
-    mapping.stringFieldBuilder(FIELD_STACKTRACE).disableNorms().disableSearch().build();
+    mapping.keywordFieldBuilder(FIELD_MESSAGE).disableNorms().disableSearch().build();
+    mapping.keywordFieldBuilder(FIELD_STACKTRACE).disableNorms().disableSearch().build();
     mapping.setProperty(FIELD_COVERED_FILES, ImmutableMap.of("type", "nested", "properties", ImmutableMap.of(
       FIELD_COVERED_FILE_UUID, ImmutableMap.of("type", "string", "index", "not_analyzed"),
       FIELD_COVERED_FILE_LINES, ImmutableMap.of("type", "integer")

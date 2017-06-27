@@ -92,9 +92,9 @@ public class NewIndexTest {
   public void define_string_field() {
     NewIndex index = new NewIndex("issues");
     NewIndex.NewIndexType mapping = index.createType("issue");
-    mapping.stringFieldBuilder("basic_field").build();
-    mapping.stringFieldBuilder("not_searchable_field").disableSearch().build();
-    mapping.stringFieldBuilder("all_capabilities_field")
+    mapping.keywordFieldBuilder("basic_field").build();
+    mapping.keywordFieldBuilder("not_searchable_field").disableSearch().build();
+    mapping.keywordFieldBuilder("all_capabilities_field")
       .addSubFields(
         DefaultIndexSettingsElement.SEARCH_GRAMS_ANALYZER,
         DefaultIndexSettingsElement.SEARCH_WORDS_ANALYZER,
@@ -149,7 +149,7 @@ public class NewIndexTest {
   public void use_default_doc_values() {
     NewIndex index = new NewIndex("issues");
     NewIndex.NewIndexType mapping = index.createType("issue");
-    mapping.stringFieldBuilder("the_doc_value").build();
+    mapping.keywordFieldBuilder("the_doc_value").build();
 
     Map<String, Object> props = (Map) mapping.getProperty("the_doc_value");
     assertThat(props.get("type")).isEqualTo("string");

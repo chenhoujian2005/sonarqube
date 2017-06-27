@@ -46,6 +46,7 @@ import static org.sonar.server.es.DefaultIndexSettings.STANDARD;
 import static org.sonar.server.es.DefaultIndexSettings.STOP;
 import static org.sonar.server.es.DefaultIndexSettings.STRING;
 import static org.sonar.server.es.DefaultIndexSettings.SUB_FIELD_DELIMITER;
+import static org.sonar.server.es.DefaultIndexSettings.FIELD_TYPE_TEXT;
 import static org.sonar.server.es.DefaultIndexSettings.TOKENIZER;
 import static org.sonar.server.es.DefaultIndexSettings.TRIM;
 import static org.sonar.server.es.DefaultIndexSettings.TYPE;
@@ -148,7 +149,7 @@ public enum DefaultIndexSettingsElement {
     @Override
     public SortedMap<String, String> fieldMapping() {
       return ImmutableSortedMap.of(
-        TYPE, STRING,
+        TYPE, FIELD_TYPE_TEXT,
         INDEX, ANALYZED,
         ANALYZER, INDEX_GRAMS_ANALYZER.getName(),
         SEARCH_ANALYZER, getName());
@@ -173,7 +174,7 @@ public enum DefaultIndexSettingsElement {
     @Override
     public SortedMap<String, String> fieldMapping() {
       return ImmutableSortedMap.of(
-        TYPE, STRING,
+        TYPE, FIELD_TYPE_TEXT,
         INDEX, ANALYZED,
         ANALYZER, INDEX_PREFIX_ANALYZER.getName(),
         SEARCH_ANALYZER, getName());
@@ -198,7 +199,7 @@ public enum DefaultIndexSettingsElement {
     @Override
     public SortedMap<String, String> fieldMapping() {
       return ImmutableSortedMap.of(
-        TYPE, STRING,
+        TYPE, FIELD_TYPE_TEXT,
         INDEX, ANALYZED,
         ANALYZER, INDEX_PREFIX_CASE_INSENSITIVE_ANALYZER.getName(),
         SEARCH_ANALYZER, getName());
@@ -223,7 +224,7 @@ public enum DefaultIndexSettingsElement {
     @Override
     public SortedMap<String, String> fieldMapping() {
       return ImmutableSortedMap.of(
-        TYPE, STRING,
+        TYPE, FIELD_TYPE_TEXT,
         INDEX, ANALYZED,
         ANALYZER, USER_INDEX_GRAMS_ANALYZER.getName(),
         SEARCH_ANALYZER, getName());
@@ -248,7 +249,7 @@ public enum DefaultIndexSettingsElement {
     @Override
     public SortedMap<String, String> fieldMapping() {
       return ImmutableSortedMap.of(
-        TYPE, STRING,
+        TYPE, FIELD_TYPE_TEXT,
         INDEX, ANALYZED,
         ANALYZER, INDEX_WORDS_ANALYZER.getName(),
         SEARCH_ANALYZER, getName());

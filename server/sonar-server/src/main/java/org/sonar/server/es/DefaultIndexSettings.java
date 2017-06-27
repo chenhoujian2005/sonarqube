@@ -45,6 +45,8 @@ public class DefaultIndexSettings {
   public static final String INDEX = "index";
   public static final String ANALYZED = "analyzed";
   public static final String STRING = "string";
+  public static final String FIELD_TYPE_TEXT = "string";  // ES 5: change to text
+  public static final String FIELD_TYPE_KEYWORD = "string";  // ES 5: change to keyword
   public static final String STANDARD = "standard";
   public static final String PATTERN = "pattern";
   public static final String CUSTOM = "custom";
